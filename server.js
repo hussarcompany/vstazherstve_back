@@ -48,6 +48,7 @@ app.get("/test", async (req, res) => {
     name: "Bob Johnston",
     DOB: "1993-02-06T19:00:00.000Z",
     user_description: "I am Bob, i like programming and to poo",
+    user_profile_picture: "https://www.gravatar.com/avatar/205e460b479e2e5b48aec07710c08d50",
     user_tags: ["Python", "Javascript", "React", "Flask", "Agile", "Poo"],
     searchingfor_tags: ["backend", "node", "Javascript"],
     user_likes: [ "482", "33", "324", "722"],
