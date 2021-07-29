@@ -16,6 +16,10 @@ const objectSchema = new mongoose.Schema({
     type: String,
     default: 'Нет'
   },
+  user_profile_picture: {
+    type: String,
+    default: 'https://www.gravatar.com/avatar/205e460b479e2e5b48aec07710c08d50'
+  },
   user_tags: {
     type: [String],
     default: ['Нет']
