@@ -27,6 +27,18 @@ app.use(express.urlencoded({
   extended: true
 }));
 
+app.get("/get_user/:userId", async (req, res) => {
+  const userId = req.params["userId"];
+  try {
+    const user = await UserModel.find({ _id: userId });
+    res.json(user);
+  }
+  catch (err) {
+    res.status(404);
+    res.json({ message: 'user not found' })
+  }
+});
+
 app.get("/test", async (req, res) => {
 
   const id = mongoose.Types.ObjectId();
