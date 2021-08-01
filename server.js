@@ -53,9 +53,7 @@ app.get("/test", async (req, res) => {
   res.send('test');
 });
 
-app.get("/poop",(req,res) => {
-  res.send('piska');
-})
+
 
 app.listen(PORT, function() {
     console.log(`Running on http://localhost:${PORT}`);
