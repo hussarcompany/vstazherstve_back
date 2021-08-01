@@ -65,6 +65,10 @@ app.get("/test", async (req, res) => {
   res.send('test');
 });
 
+app.get("/tester", (req, res) => {
+  res.send('tester lmao')
+})
+
 
 
 app.listen(PORT, function() {
