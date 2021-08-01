@@ -71,7 +71,7 @@ app.get("/tester", (req, res) => {
 
 
 
-app.listen(PORT, function() {
+app.listen(processs.env.PORT, function() {
     console.log(`Running on http://localhost:${PORT}`);
     connectDb().then(() => {
       console.log("MongoDb connected");
