@@ -16,12 +16,13 @@ import (
 )
 
 var client *mongo.Client
+var err error
 
 func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Add("content-type", "application/json")
 	var user models.User
 	_ = json.NewDecoder(request.Body).Decode(&user)
-	collection := client.Database("abobus").Collection("trial")
+	collection := client.Database("abobus").Collection("dudes")
 	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	result, _ := collection.InsertOne(ctx, user)
 	json.NewEncoder(response).Encode(result)
@@ -29,7 +30,7 @@ func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
 
 func main() {
 	fmt.Println("Starting application")
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb+srv://Hussar:Hussar1@hussarcluster.cokdm.mongodb.net/test"))
+	client, err = mongo.NewClient(options.Client().ApplyURI("mongodb+srv://Hussar:Hussar1@hussarcluster.cokdm.mongodb.net/test"))
 	if err != nil {
 		log.Fatal(err)
 	}
