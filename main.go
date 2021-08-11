@@ -1,33 +1,55 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
+	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/hussar_company/vstazherstve_back/models"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// album represents data about a record album.
-type album struct {
-	ID     string  `json:"id"`
-	Title  string  `json:"title"`
-	Artist string  `json:"artist"`
-	Price  float64 `json:"price"`
-}
+var client *mongo.Client
 
-// albums slice to seed record album data.
-var albums = []album{
-	{ID: "1", Title: "Blue Train", Artist: "John Coltrane", Price: 56.99},
-	{ID: "2", Title: "Jeru", Artist: "Gerry Mulligan", Price: 17.99},
-	{ID: "3", Title: "Sarah Vaughan and Clifford Brown", Artist: "Sarah Vaughan", Price: 39.99},
-}
-
-// getAlbums responds with the list of all albums as JSON.
-func getAlbums(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, albums)
+func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
+	response.Header().Add("content-type", "application/json")
+	var user models.User
+	_ = json.NewDecoder(request.Body).Decode(&user)
+	collection := client.Database("abobus").Collection("trial")
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	result, _ := collection.InsertOne(ctx, user)
+	json.NewEncoder(response).Encode(result)
 }
 
 func main() {
-	router := gin.Default()
-	router.GET("/albums", getAlbums)
+	fmt.Println("Starting application")
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb+srv://Hussar:Hussar1@hussarcluster.cokdm.mongodb.net/test"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	err = client.Connect(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer client.Disconnect(ctx)
+	databases, err := client.ListDatabaseNames(ctx, bson.M{})
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	router.Run("localhost:8080")
+	fmt.Println(models.Herro())
+
+	fmt.Println(databases)
+	router := mux.NewRouter()
+
+	router.HandleFunc("/user", CreateUserEndpoint).Methods("POST")
+
+	http.ListenAndServe(":8000", router)
 }
