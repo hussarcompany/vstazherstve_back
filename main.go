@@ -94,5 +94,8 @@ func main() {
 	router.HandleFunc("/users", GetUsersEndpoint).Methods("GET")
 	router.HandleFunc("/finduser/{id}", FindUserEndpoint).Methods("GET")
 
-	http.ListenAndServe(":8000", router)
+	httpError := http.ListenAndServe(":8000", router)
+	if httpError != nil {
+		log.Println("While serving HTTP error: ", httpError)
+	}
 }
