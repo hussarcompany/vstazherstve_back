@@ -11,12 +11,12 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hussar_company/vstazherstve_back/models"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 var client *mongo.Client
-var err error
 
 func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Add("content-type", "application/json")
@@ -28,8 +28,48 @@ func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(result)
 }
 
+func GetUsersEndpoint(response http.ResponseWriter, request *http.Request) {
+	response.Header().Add("content-type", "application/json")
+	var users []models.User
+	collection := client.Database("abobus").Collection("dudes")
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	cursor, err := collection.Find(ctx, bson.M{})
+	if err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{"message:"` + err.Error() + `"}`))
+	}
+	defer cursor.Close(ctx)
+	for cursor.Next(ctx) {
+		var user models.User
+		cursor.Decode(&user)
+		users = append(users, user)
+	}
+	if err := cursor.Err(); err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{"message:"` + err.Error() + `"}`))
+		return
+	}
+	json.NewEncoder(response).Encode(users)
+}
+
+func FindUserEndpoint(response http.ResponseWriter, request *http.Request) {
+	response.Header().Add("content-type", "application/json")
+	params := mux.Vars(request)
+	id, _ := primitive.ObjectIDFromHex(params["id"])
+	var user models.User
+	collection := client.Database("abobus").Collection("dudes")
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	err := collection.FindOne(ctx, models.User{ID: id}).Decode(&user)
+	if err != nil {
+		response.WriteHeader(http.StatusInternalServerError)
+		response.Write([]byte(`{"message:"` + err.Error() + `"}`))
+	}
+	json.NewEncoder(response).Encode(user)
+}
+
 func main() {
 	fmt.Println("Starting application")
+	var err error
 	client, err = mongo.NewClient(options.Client().ApplyURI("mongodb+srv://Hussar:Hussar1@hussarcluster.cokdm.mongodb.net/test"))
 	if err != nil {
 		log.Fatal(err)
@@ -50,7 +90,9 @@ func main() {
 	fmt.Println(databases)
 	router := mux.NewRouter()
 
-	router.HandleFunc("/user", CreateUserEndpoint).Methods("POST")
+	router.HandleFunc("/makeuser", CreateUserEndpoint).Methods("POST")
+	router.HandleFunc("/users", GetUsersEndpoint).Methods("GET")
+	router.HandleFunc("/finduser/{id}", FindUserEndpoint).Methods("GET")
 
 	http.ListenAndServe(":8000", router)
 }
