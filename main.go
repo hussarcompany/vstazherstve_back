@@ -2,100 +2,69 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/hussar_company/vstazherstve_back/models"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/hussar_company/vstazherstve_back/dbcontext"
+	"github.com/hussar_company/vstazherstve_back/user"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var client *mongo.Client
-
-func CreateUserEndpoint(response http.ResponseWriter, request *http.Request) {
-	response.Header().Add("content-type", "application/json")
-	var user models.User
-	_ = json.NewDecoder(request.Body).Decode(&user)
-	collection := client.Database("abobus").Collection("dudes")
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	result, _ := collection.InsertOne(ctx, user)
-	json.NewEncoder(response).Encode(result)
+func buildHandler(r *mux.Router, db *dbcontext.DB) {
+	user.RegisterHandlers(r, user.NewService(user.NewRepository(db)))
 }
 
-func GetUsersEndpoint(response http.ResponseWriter, request *http.Request) {
-	response.Header().Add("content-type", "application/json")
-	var users []models.User
-	collection := client.Database("abobus").Collection("dudes")
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	cursor, err := collection.Find(ctx, bson.M{})
-	if err != nil {
-		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(`{"message:"` + err.Error() + `"}`))
-	}
-	defer cursor.Close(ctx)
-	for cursor.Next(ctx) {
-		var user models.User
-		cursor.Decode(&user)
-		users = append(users, user)
-	}
-	if err := cursor.Err(); err != nil {
-		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(`{"message:"` + err.Error() + `"}`))
-		return
-	}
-	json.NewEncoder(response).Encode(users)
-}
+func init() {
+	viper.SetConfigName("appconfig")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
+	viper.AutomaticEnv()
 
-func FindUserEndpoint(response http.ResponseWriter, request *http.Request) {
-	response.Header().Add("content-type", "application/json")
-	params := mux.Vars(request)
-	id, _ := primitive.ObjectIDFromHex(params["id"])
-	var user models.User
-	collection := client.Database("abobus").Collection("dudes")
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	err := collection.FindOne(ctx, models.User{ID: id}).Decode(&user)
+	viper.SetDefault("env", "local")
+	viper.SetDefault("port", "8080")
+
+	err := viper.ReadInConfig()
 	if err != nil {
-		response.WriteHeader(http.StatusInternalServerError)
-		response.Write([]byte(`{"message:"` + err.Error() + `"}`))
+		log.WithError(err).Error("Ошибка при чтении файла конфигурации")
 	}
-	json.NewEncoder(response).Encode(user)
+
+	environment := viper.GetString("env")
+
+	log.SetOutput(os.Stdout)
+	log.SetLevel(log.TraceLevel)
+
+	if environment == "dev" {
+		log.SetFormatter(&log.JSONFormatter{})
+		log.SetLevel(log.InfoLevel)
+	}
 }
 
 func main() {
-	fmt.Println("Starting application")
-	var err error
-	client, err = mongo.NewClient(options.Client().ApplyURI("mongodb+srv://Hussar:Hussar1@hussarcluster.cokdm.mongodb.net/test"))
+	log.Info("Application starting.")
+
+	connectionString := viper.GetString("connectionString")
+	client, err := mongo.NewClient(options.Client().ApplyURI(connectionString))
 	if err != nil {
-		log.Fatal(err)
+		log.WithError(err).Fatal("Ошибка при создании клиент")
 	}
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
 	err = client.Connect(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
 	defer client.Disconnect(ctx)
-	databases, err := client.ListDatabaseNames(ctx, bson.M{})
 	if err != nil {
-		log.Fatal(err)
+		log.WithError(err).Fatal("Ошибка при подключении к БД")
 	}
 
-	fmt.Println(models.Herro())
-
-	fmt.Println(databases)
+	db := client.Database(viper.GetString("database"))
 	router := mux.NewRouter()
+	buildHandler(router, dbcontext.New(db))
 
-	router.HandleFunc("/makeuser", CreateUserEndpoint).Methods("POST")
-	router.HandleFunc("/users", GetUsersEndpoint).Methods("GET")
-	router.HandleFunc("/finduser/{id}", FindUserEndpoint).Methods("GET")
-
-	httpError := http.ListenAndServe(":8000", router)
-	if httpError != nil {
-		log.Println("While serving HTTP error: ", httpError)
-	}
+	httpError := http.ListenAndServe(":"+viper.GetString("PORT"), router)
+	log.WithError(httpError).Error("Ошибка во время работы сервера")
 }
